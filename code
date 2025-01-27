@@ -1,0 +1,350 @@
+## Step 1: Understand the data
+# Import necessary libraries
+import pandas as pd  # For data manipulation and analysis
+import numpy as np  # For numerical operations
+import matplotlib.pyplot as plt  # For basic data visualization
+import seaborn as sns  # For advanced visualization
+
+# Load the dataset
+data = pd.read_csv("diabetes_data.csv")
+
+
+# Inspect the first few rows of the dataset
+
+data.head()
+
+# Check the structure of the dataset
+
+data.info()
+
+# Summary statistics for numerical columns
+
+data.describe()
+
+# Check for missing values
+
+data.isnull().sum()
+
+# Check for duplicate rows
+
+data.duplicated().sum()
+
+# Display column names for clarity
+
+data.columns.tolist()
+
+# Optional: Basic visualization to get an overview of the data
+# Plot distribution of the target variable is class
+
+if 'class' in data.columns:
+    plt.figure(figsize=(6, 4))
+    sns.countplot(data=data, x='class', palette='viridis')
+    plt.title('Distribution of Target Variable (class)')
+    plt.xlabel('class')
+    plt.ylabel('Count')
+    plt.show() 
+## Step 2: Exploratory Data Analysis(EDA)
+  # Correlation Heatmap
+# Select only numerical columns for correlation
+numerical_features = data.select_dtypes(include=np.number).columns.tolist()
+correlation_matrix = data[numerical_features].corr()
+
+sns.heatmap(correlation_matrix, annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
+plt.title("Correlation Heatmap")
+plt.show()
+
+  # Distribution of Numerical Features
+numerical_features = data.select_dtypes(include=np.number).columns.tolist()
+for feature in numerical_features:
+    plt.figure(figsize=(6, 4))
+    sns.histplot(data[feature], kde=True, bins=30, color="blue")
+    plt.title(f"Distribution of {feature}")
+    plt.xlabel(feature)
+    plt.ylabel("Frequency")
+    plt.show()
+
+  # Boxplots for Outlier Detection
+for feature in numerical_features:
+    plt.figure(figsize=(6, 4))
+    sns.boxplot(x=data[feature], color="green")
+    plt.title(f"Boxplot of {feature}")
+    plt.xlabel(feature)
+    plt.show()
+
+  # Relationship Between Features and Outcome
+if 'class' in data.columns:
+    for feature in numerical_features:
+        if feature != 'class':  # Skip the target variable
+            plt.figure(figsize=(6, 4))
+            sns.boxplot(x='class', y=feature, data=data, palette="Set2")
+            plt.title(f"{feature} vs Class")
+            plt.xlabel("Class (0: Negative, 1: Positive)")
+            plt.ylabel(feature)
+            plt.show()
+
+  # Check for Class Imbalance
+if 'class' in data.columns:
+    print("\nClass Distribution (Class):")
+    print(data['class'].value_counts())
+    plt.figure(figsize=(6, 4))
+    sns.countplot(data=data, x='class', palette="Set3")
+    plt.title("Class Distribution of Target (class)")
+    plt.xlabel("Class (0: No Diabetes, 1: Diabetes)")
+    plt.ylabel("Count")
+    plt.show()
+
+
+  ## Step 3: Preprocessing
+  from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+#  Handle Missing Values
+print("\nMissing Values Before Handling:")
+print(data.isnull().sum())
+
+# Fill missing values with the mean for numerical columns
+numerical_features = data.select_dtypes(include=np.number).columns.tolist()
+data[numerical_features] = data[numerical_features].fillna(data[numerical_features].mean())
+
+# Verify missing values are handled
+print("\nMissing Values After Handling:")
+print(data.isnull().sum())
+
+
+#  Normalize/Scale Numerical Features
+
+# Identify numerical features
+numerical_features = data.select_dtypes(include=np.number).columns.tolist()
+
+# Remove the target variable ('class') if it is in the list
+if 'class' in numerical_features:
+    numerical_features.remove('class')
+
+print("Numerical Features (excluding 'class'):", numerical_features)
+
+scaler = StandardScaler()
+data[numerical_features] = scaler.fit_transform(data[numerical_features])
+
+print("\nScaled Numerical Features:")
+print(data[numerical_features].head())
+
+#  Encode Categorical Variables (if any)
+# Since your dataset seems numerical, no categorical encoding is done here.
+
+
+#  Split Data into Training and Testing Sets
+X = data.drop(columns=['class'])  # Features , here we dropped the target column 'class'
+y = data['class']  # Target variable
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+print("\nShapes of Training and Testing Sets:")
+print("X_train:", X_train.shape)
+print("X_test:", X_test.shape)
+print("y_train:", y_train.shape)
+print("y_test:", y_test.shape)
+
+  ## Step 4: Feature Selection
+  from sklearn.ensemble import RandomForestClassifier
+import matplotlib.pyplot as plt
+
+# Encode categorical variables (if not done already)
+from sklearn.preprocessing import LabelEncoder
+
+label_encoder = LabelEncoder()
+for col in data.columns:
+    if data[col].dtype == 'object' and col != 'class':
+        data[col] = label_encoder.fit_transform(data[col])
+
+# Encode target variable
+data['class'] = label_encoder.fit_transform(data['class'])
+
+# Separate features and target
+X = data.drop(columns=['class'])
+y = data['class']
+
+# Debugging: Check X and y shape and contents
+print(f"Shape of features (X): {X.shape}")
+print(f"Shape of target (y): {y.shape}")
+print("Sample data from X:\n", X.head())
+print("Sample data from y:\n", y.head())
+
+# Check for missing or invalid data in features
+if X.isnull().sum().sum() > 0:
+    print("Missing values detected in features. Filling with 0...")
+    X = X.fillna(0)
+
+# Check for any rows being dropped
+if X.shape[0] == 0 or y.shape[0] == 0:
+    raise ValueError("No data available after preprocessing. Check data preparation steps.")
+
+# Train a Random Forest Classifier
+rf_model = RandomForestClassifier(random_state=42)
+rf_model.fit(X, y)
+
+# Get feature importances
+feature_importances = pd.DataFrame({
+    'Feature': X.columns,
+    'Importance': rf_model.feature_importances_
+}).sort_values(by='Importance', ascending=False)
+
+# Display feature importances
+print(feature_importances)
+
+# Visualize feature importances
+plt.figure(figsize=(10, 6))
+plt.barh(feature_importances['Feature'], feature_importances['Importance'], color='skyblue')
+plt.xlabel('Importance Score')
+plt.ylabel('Features')
+plt.title('Feature Importance using Random Forest')
+plt.gca().invert_yaxis()
+plt.show()
+
+## **Step 5: Model Selection** 
+
+  from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Define models to test
+models = {
+    "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
+    "Decision Tree": DecisionTreeClassifier(random_state=42),
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
+    "XGBoost": XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
+}
+
+# Train and evaluate each model
+results = {}
+for model_name, model in models.items():
+    print(f"Training {model_name}...")
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    y_pred_prob = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
+
+    # Calculate metrics
+    accuracy = accuracy_score(y_test, y_pred)
+    roc_auc = roc_auc_score(y_test, y_pred_prob) if y_pred_prob is not None else "N/A"
+    results[model_name] = {
+        "Accuracy": accuracy,
+        "ROC-AUC": roc_auc
+    }
+
+    # Print classification report
+    print(f"\n{model_name} Classification Report:\n")
+    print(classification_report(y_test, y_pred))
+    print("-" * 50)
+
+# Display results
+print("\nSummary of Model Performance:")
+for model_name, metrics in results.items():
+    print(f"{model_name}: Accuracy = {metrics['Accuracy']:.2f}, ROC-AUC = {metrics['ROC-AUC'] if metrics['ROC-AUC'] != 'N/A' else 'N/A'}")
+## Step 6:Model Evalution
+
+  from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Assuming Random Forest was trained (replace `model` with the trained model of your choice)
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+y_pred_prob = model.predict_proba(X_test)[:, 1]  # Probability for positive class
+
+# Metrics
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+roc_auc = roc_auc_score(y_test, y_pred_prob)
+
+# Print evaluation metrics
+print(f"Accuracy: {accuracy:.2f}")
+print(f"Precision: {precision:.2f}")
+print(f"Recall: {recall:.2f}")
+print(f"F1-Score: {f1:.2f}")
+print(f"ROC-AUC: {roc_auc:.2f}\n")
+
+# Classification Report
+print("Classification Report:\n")
+print(classification_report(y_test, y_pred))
+
+# Confusion Matrix
+conf_matrix = confusion_matrix(y_test, y_pred)
+
+# Plot Confusion Matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=["No Diabetes", "Diabetes"], yticklabels=["No Diabetes", "Diabetes"])
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.title("Confusion Matrix")
+plt.show()
+
+# ROC Curve
+from sklearn.metrics import roc_curve
+
+fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {roc_auc:.2f})", color="darkorange")
+plt.plot([0, 1], [0, 1], "k--", label="Random Chance")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.legend(loc="lower right")
+plt.show()
+
+## Step 7:Model Optimization
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+
+# Define the parameter grid for Random Forest
+param_grid = {
+    'n_estimators': [50, 100, 150],
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'bootstrap': [True, False]
+}
+
+# Initialize the Random Forest model
+rf_model = RandomForestClassifier(random_state=42)
+
+# Grid Search for hyperparameter tuning
+grid_search = GridSearchCV(
+    estimator=rf_model,
+    param_grid=param_grid,
+    cv=5,  # 5-fold cross-validation
+    scoring='roc_auc',  # Optimize based on ROC-AUC score
+    verbose=2,
+    n_jobs=-1  # Use all available cores
+)
+
+# Fit the model to the training data
+grid_search.fit(X_train, y_train)
+
+# Best parameters and score
+print(f"Best Parameters: {grid_search.best_params_}")
+print(f"Best ROC-AUC Score: {grid_search.best_score_:.2f}")
+
+# Train the best model on the full training set
+best_rf_model = grid_search.best_estimator_
+best_rf_model.fit(X_train, y_train)
+
+# Evaluate on the test set
+y_pred = best_rf_model.predict(X_test)
+y_pred_prob = best_rf_model.predict_proba(X_test)[:, 1]
+roc_auc = roc_auc_score(y_test, y_pred_prob)
+
+print(f"Test ROC-AUC Score: {roc_auc:.2f}")
+
+
+
+  
